@@ -6,6 +6,5 @@ scalaVersion := "2.13.4"
 
 lazy val root = (project in file("."))
   .aggregate(api)
-  .dependsOn(api)
 
 lazy val api = (project in file("strava-api"))
