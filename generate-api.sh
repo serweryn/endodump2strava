@@ -26,10 +26,10 @@ fi
 unzip -o ${API_ARTIFACT}.zip -d ${API_ARTIFACT}
 
 mv ${API_ARTIFACT}/build.sbt ${API_ARTIFACT}/build.sbt.orig
-sed  -e \
-  's/^scalaVersion.*/scalaVersion := "2.13.4"/' \
-  's/"com.typesafe.akka" %% "akka-actor" % .*/"com.typesafe.akka" %% "akka-actor" % "2.6.11",/' \
-  's/"org.json4s" %% "json4s-jackson" % .*/"org.json4s" %% "json4s-jackson" % "3.6.10",/' \
-  's/"org.scalatest" %% "scalatest" % [^%]*/"org.scalatest" %% "scalatest" % "3.2.2" /' \
+sed \
+  -e 's/^scalaVersion.*/scalaVersion := "2.13.4"/' \
+  -e 's/"com.typesafe.akka" %% "akka-actor" % .*/"com.typesafe.akka" %% "akka-actor" % "2.6.11",/' \
+  -e 's/"org.json4s" %% "json4s-jackson" % .*/"org.json4s" %% "json4s-jackson" % "3.6.10",/' \
+  -e 's/"org.scalatest" %% "scalatest" % [^%]*/"org.scalatest" %% "scalatest" % "3.2.2" /' \
   <${API_ARTIFACT}/build.sbt.orig \
   >${API_ARTIFACT}/build.sbt
