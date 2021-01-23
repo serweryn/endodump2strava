@@ -1,10 +1,17 @@
 organization := "endodump2strava"
-name := "loader"
+name := "importer"
 version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.13.4"
 
 lazy val root = (project in file("."))
   .aggregate(api)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.typesafe.play" %% "play-json" % "2.9.2",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "org.scalatest" %% "scalatest" % "3.2.2" % Test
+    )
+  )
 
 lazy val api = (project in file("strava-api"))
