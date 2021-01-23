@@ -8,6 +8,7 @@ lazy val root = (project in file("."))
   .aggregate(api)
   .settings(
     libraryDependencies ++= Seq(
+      "com.beachape" %% "enumeratum" % "1.6.1",
       "com.typesafe.play" %% "play-json" % "2.9.2",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "ch.qos.logback" % "logback-classic" % "1.2.3",
