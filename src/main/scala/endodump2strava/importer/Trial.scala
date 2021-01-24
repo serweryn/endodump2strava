@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 import endodump2strava.endo.{Sport, Workout}
 import endodump2strava.strava.api.{ActivitiesApi, UploadsApi}
 import endodump2strava.strava.model.UpdatableActivity
+import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiInvoker, ApiKeyLocations, ApiKeyValue, ApiResponse}
 import play.api.libs.json.Json
 
@@ -17,6 +18,9 @@ object Trial extends App with LazyLogging {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val invoker: ApiInvoker = ApiInvoker()
+
+  val ctx = new H2JdbcContext(SnakeCase, "endodump2strava.db")
+  system.registerOnTermination(ctx.close())
 
   def o[A](a: A) = Option(a)
 
