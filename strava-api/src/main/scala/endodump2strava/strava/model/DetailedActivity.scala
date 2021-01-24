@@ -37,7 +37,7 @@ case class DetailedActivity (
   elevHigh: Option[Float] = None,
   /* The activity's lowest elevation, in meters */
   elevLow: Option[Float] = None,
-  `type`: Option[ActivityType] = None,
+  `type`: Option[String] = None,
   /* The time at which the activity was started. */
   startDate: Option[DateTime] = None,
   /* The time at which the activity was started in the local timezone. */

@@ -24,7 +24,7 @@ case class UpdatableActivity (
   description: Option[String] = None,
   /* The name of the activity */
   name: Option[String] = None,
-  `type`: Option[ActivityType] = None,
+  `type`: Option[String] = None,
   /* Identifier for the gear associated with the activity. ‘none’ clears gear from activity */
   gearId: Option[String] = None
 ) extends ApiModel
