@@ -5,16 +5,16 @@ version := "0.1-SNAPSHOT"
 scalaVersion := "2.11.12"
 
 val jacksonVersion = "2.9.8"
-val overriden = Seq(
+val overrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonVersion,
   "com.fasterxml.jackson.core" % "jackson-core" % jacksonVersion,
   "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
   "joda-time" % "joda-time" % "2.10.1",
 )
 
-lazy val root = (project in file("."))
-  .aggregate(api)
-  .dependsOn(api)
+lazy val importer = (project in file("."))
+  .aggregate(`strava-api`)
+  .dependsOn(`strava-api`)
   .settings(
     libraryDependencies ++= Seq(
       "com.beachape" %% "enumeratum" % "1.6.1",
@@ -25,7 +25,7 @@ lazy val root = (project in file("."))
     )
   )
 
-lazy val api = (project in file("strava-api"))
+lazy val `strava-api` = (project in file("strava-api"))
   .settings(
-    libraryDependencies ++= overriden
+    dependencyOverrides ++= overrides
   )
