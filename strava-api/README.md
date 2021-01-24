@@ -38,7 +38,7 @@ Add this dependency to your project's POM:
 <dependency>
   <groupId>endodump2strava</groupId>
   <artifactId>strava-api</artifactId>
-  <version>3-SNAPSHOT</version>
+  <version>3.0-SNAPSHOT</version>
   <scope>compile</scope>
 </dependency>
 ```
@@ -48,13 +48,13 @@ Add this dependency to your project's POM:
 Add this dependency to your project's build file:
 
 ```groovy
-compile "endodump2strava:strava-api:3-SNAPSHOT"
+compile "endodump2strava:strava-api:3.0-SNAPSHOT"
 ```
 
 ### SBT users
 
 ```scala
-libraryDependencies += "endodump2strava" % "strava-api" % "3-SNAPSHOT"
+libraryDependencies += "endodump2strava" % "strava-api" % "3.0-SNAPSHOT"
 ```
 
 ## Getting Started

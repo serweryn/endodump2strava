@@ -6,7 +6,7 @@
 
   <groupId>endodump2strava</groupId>
   <artifactId>strava-api</artifactId>
-  <version>3-SNAPSHOT</version>
+  <version>3.0-SNAPSHOT</version>
 
   <packaging>jar</packaging>
 
