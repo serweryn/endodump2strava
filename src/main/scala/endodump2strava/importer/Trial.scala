@@ -5,7 +5,7 @@ import java.io.{File, FileInputStream}
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
 import endodump2strava.endo.{Sport, Workout}
-import endodump2strava.strava.api.{ActivitiesApi, UploadsApi}
+import endodump2strava.strava.api.{ActivitiesApi, OAuthApi, UploadsApi}
 import endodump2strava.strava.model.UpdatableActivity
 import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiInvoker, ApiKeyLocations, ApiKeyValue, ApiResponse}
@@ -24,16 +24,25 @@ object Trial extends App with LazyLogging {
 
   def o[A](a: A) = Option(a)
 
-  val request = {
-//    createUpload()
-    createUpdateActivity()
-  }
+//  val request = {
+////    createUpload()
+//    createUpdateActivity()
+//  }
 
-  val accessToken = system.settings.config.getString("endodump2strava.access-token")
+  def getString(suffix: String)(implicit system: ActorSystem) =
+    system.settings.config.getString("endodump2strava." + suffix)
+
+  val clientId = getString("client-id")
+  val clientSecret = getString("client-secret")
+  val refreshToken = getString("refresh-token")
+
+  val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
   val requestWithAuth = request
-    .withApiKey(ApiKeyValue(s"Bearer $accessToken"), "Authorization", ApiKeyLocations.HEADER)
-  val response = invoker.execute(requestWithAuth)
 
+//  val requestWithAuth = request
+//    .withApiKey(ApiKeyValue(s"Bearer $accessToken"), "Authorization", ApiKeyLocations.HEADER)
+
+  val response = invoker.execute(requestWithAuth)
   response onComplete { x =>
     logger.info(s"$x")
   }
