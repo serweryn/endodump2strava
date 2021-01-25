@@ -19,6 +19,7 @@ create table if not exists imported_activity_step (
     step_name varchar(255) not null,
     response_code int not null,
     response_body varchar(9999999) not null,
+    response_headers varchar(9999999) not null,
     received timestamp with time zone not null,
     primary key (workout_basename, step_name)
 );

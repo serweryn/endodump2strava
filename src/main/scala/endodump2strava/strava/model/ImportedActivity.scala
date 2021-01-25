@@ -13,5 +13,6 @@ final case class ImportedActivityStep(
   stepName: String,
   responseCode: Int,
   responseBody: String,
+  responseHeaders: String,
   received: ZonedDateTime
 )
