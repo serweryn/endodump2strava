@@ -1,4 +1,5 @@
 .bsp/
 .idea/
+/endodump2strava.mv.db
 strava-api.zip
 target/
