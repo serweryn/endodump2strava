@@ -1,4 +1,4 @@
-package endodump2strava.strava.model
+package endodump2strava.strava.db
 
 import java.time.ZonedDateTime
 

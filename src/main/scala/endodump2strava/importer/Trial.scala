@@ -1,12 +1,12 @@
 package endodump2strava.importer
 
 import java.io.{File, FileInputStream}
-
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
 import endodump2strava.endo.{Sport, Workout}
 import endodump2strava.strava.api.{ActivitiesApi, OAuthApi, UploadsApi}
-import endodump2strava.strava.model.{TokenInfo, UpdatableActivity}
+import endodump2strava.strava.db.TokenInfo
+import endodump2strava.strava.model.UpdatableActivity
 import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiInvoker, ApiKeyLocations, ApiKeyValue, ApiResponse}
 import play.api.libs.json.Json

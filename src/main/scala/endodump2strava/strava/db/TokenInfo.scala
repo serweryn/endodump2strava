@@ -1,4 +1,4 @@
-package endodump2strava.strava.model
+package endodump2strava.strava.db
 
 final case class TokenInfo(
   user: String,
