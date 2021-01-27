@@ -6,7 +6,7 @@ import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
 import endodump2strava.endo.{Sport, Workout}
 import endodump2strava.strava.api.{ActivitiesApi, OAuthApi, UploadsApi}
-import endodump2strava.strava.model.UpdatableActivity
+import endodump2strava.strava.model.{TokenInfo, UpdatableActivity}
 import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiInvoker, ApiKeyLocations, ApiKeyValue, ApiResponse}
 import play.api.libs.json.Json
@@ -18,9 +18,12 @@ object Trial extends App with LazyLogging {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val invoker: ApiInvoker = ApiInvoker()
+  val user = "serweryn"
 
   val ctx = new H2JdbcContext(SnakeCase, "endodump2strava.db")
   system.registerOnTermination(ctx.close())
+
+  import ctx._
 
   def o[A](a: A) = Option(a)
 
@@ -32,9 +35,13 @@ object Trial extends App with LazyLogging {
   def getString(suffix: String)(implicit system: ActorSystem) =
     system.settings.config.getString("endodump2strava." + suffix)
 
+  def queryRefreshToken(user: String) = quote {
+    query[TokenInfo].filter(_.user == lift(user)).map(_.refreshToken)
+  }
+
   val clientId = getString("client-id")
   val clientSecret = getString("client-secret")
-  val refreshToken = getString("refresh-token")
+  val refreshToken = ctx.run(queryRefreshToken(user)).headOption.getOrElse(getString("refresh-token"))
 
   val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
   val requestWithAuth = request
@@ -43,8 +50,17 @@ object Trial extends App with LazyLogging {
 //    .withApiKey(ApiKeyValue(s"Bearer $accessToken"), "Authorization", ApiKeyLocations.HEADER)
 
   val response = invoker.execute(requestWithAuth)
-  response onComplete { x =>
-    logger.info(s"$x")
+  response onComplete {
+    case Success(apiResponse) =>
+      val ati = apiResponse.content
+      def delete(user: String) = quote {
+        query[TokenInfo].filter(_.user == lift(user)).delete
+      }
+      ctx.run(delete(user))
+      def insert(user: String, tokenType: String, accessToken: String, expiresAt: Int, refreshToken: String) = quote {
+        query[TokenInfo].insert(TokenInfo(lift(user), lift(tokenType), lift(accessToken), lift(expiresAt), lift(refreshToken)))
+      }
+      ctx.run(insert(user, ati.tokenType.get, ati.accessToken.get, ati.expiresAt.get, ati.refreshToken.get))
   }
 
   private def createUpload() = {
