@@ -5,7 +5,7 @@ import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
 import endodump2strava.endo.{Sport, Workout}
 import endodump2strava.strava.api.{ActivitiesApi, OAuthApi, UploadsApi}
-import endodump2strava.strava.db.TokenInfo
+import endodump2strava.db.TokenInfo
 import endodump2strava.strava.model.UpdatableActivity
 import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiInvoker, ApiKeyLocations, ApiKeyValue, ApiResponse}
@@ -35,13 +35,13 @@ object Trial extends App with LazyLogging {
   def getString(suffix: String)(implicit system: ActorSystem) =
     system.settings.config.getString("endodump2strava." + suffix)
 
-  def queryRefreshToken(user: String) = quote {
+  def selectRefreshToken(user: String) = quote {
     query[TokenInfo].filter(_.user == lift(user)).map(_.refreshToken)
   }
 
   val clientId = getString("client-id")
   val clientSecret = getString("client-secret")
-  val refreshToken = ctx.run(queryRefreshToken(user)).headOption.getOrElse(getString("refresh-token"))
+  val refreshToken = ctx.run(selectRefreshToken(user)).headOption.getOrElse(getString("refresh-token"))
 
   val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
   val requestWithAuth = request
