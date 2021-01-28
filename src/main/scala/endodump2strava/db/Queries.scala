@@ -1,9 +1,6 @@
 package endodump2strava.db
 
-import endodump2strava.importer.Trial.ctx
-import io.getquill.{EntityQuery, H2Dialect, H2JdbcContext, NamingStrategy, SnakeCase}
-import io.getquill.context.jdbc.JdbcContext
-import io.getquill.context.sql.idiom.SqlIdiom
+import io.getquill.{H2JdbcContext, SnakeCase}
 
 class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
 
