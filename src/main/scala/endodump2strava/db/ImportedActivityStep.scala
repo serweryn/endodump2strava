@@ -10,3 +10,9 @@ final case class ImportedActivityStep(
   responseHeaders: String,
   received: LocalDateTime
 )
+
+object ImportedActivityStep {
+  val createUpload = "createUpload"
+  val getUpload = "getUpload"
+  val updateActivity = "updateActivity"
+}

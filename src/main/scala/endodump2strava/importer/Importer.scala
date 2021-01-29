@@ -7,8 +7,9 @@ import endodump2strava.endo.WorkoutFileType
 import endodump2strava.importer.Importer.getConfigString
 import endodump2strava.strava.api.OAuthApi
 import io.getquill.{H2JdbcContext, SnakeCase}
-import io.swagger.client.core.{ApiError, ApiInvoker}
+import io.swagger.client.core.ApiInvoker
 
+import java.io.{File, FilenameFilter}
 import scala.concurrent.{ExecutionContext, Future}
 
 class Importer(implicit system: ActorSystem) extends LazyLogging {
@@ -23,6 +24,12 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   private val db = new Queries(sqlCtx)
 
   def doImport(): Unit = {
+    val allWorkouts = allEndoWorkouts()
+    val completedWorkouts = db.completedActivities().map(_.workoutBasename).toSet
+    val notCompletedWorkouts = allWorkouts.filterNot(x => completedWorkouts.contains(x.name))
+
+    if (notCompletedWorkouts.isEmpty) return
+
     accessToken().map { token =>
       val stravaApi = new RequestCreator(token)
     }
@@ -45,6 +52,26 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       }
       ati.accessToken.get
     }
+  }
+
+  case class NameAndFilename(name: String, filename: String)
+
+  def allEndoWorkouts(): Seq[NameAndFilename] = {
+    val endoDirname = getConfigString("endo-workouts-dir")
+    val endoDir = new File(endoDirname)
+    if (!endoDir.exists() || !endoDir.isDirectory)
+      throw new IllegalArgumentException(s"$endoDirname does not exist or is not a directory")
+
+    val `.tcx.gz` = "." + WorkoutFileType.TcxGz.extension
+    val tcxFiles = endoDir.listFiles(new FilenameFilter {
+      override def accept(dir: File, name: String): Boolean = name.endsWith(`.tcx.gz`)
+    }).toSeq
+    tcxFiles.foreach { f =>
+      val jsonFname = f.getAbsolutePath.replace(WorkoutFileType.TcxGz.extension, WorkoutFileType.Json.extension)
+      if (! new File(jsonFname).exists()) throw new IllegalStateException(s"$jsonFname does not exist")
+    }
+
+    tcxFiles.map(f => NameAndFilename(f.getName.replace(`.tcx.gz`, ""), f.getAbsolutePath))
   }
 
 }

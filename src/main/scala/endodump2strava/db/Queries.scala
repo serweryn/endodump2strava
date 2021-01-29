@@ -38,6 +38,16 @@ class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
       }
     }
 
+  def completedActivities(): List[ImportedActivity] =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivity].filter { a => a.uploadId.nonEmpty && a.activityId.nonEmpty &&
+          query[ImportedActivityStep].filter(s => s.workoutBasename == a.workoutBasename &&
+            s.stepName == lift(ImportedActivityStep.updateActivity) && s.responseCode < 300).nonEmpty
+        }
+      }
+    }
+
   def insertActivity(activity: ImportedActivity): Long =
     sqlCtx.run {
       quote {
