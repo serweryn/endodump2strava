@@ -10,6 +10,7 @@ object Main extends App {
   private implicit val system: ActorSystem = ActorSystem()
   private val importer = new Importer()
 
-  system.scheduler.schedule(0 seconds, 15 minutes)(importer.doImport())
+  val importTask = system.scheduler.schedule(0 seconds, 15 minutes)(importer.doImport())
+  system.registerOnTermination(importTask.cancel())
 
 }
