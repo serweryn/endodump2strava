@@ -6,7 +6,9 @@ class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
 
   import sqlCtx._
 
-  def selectRefreshToken(user: String): List[TokenInfo] =
+  // token_info
+
+  def selectTokenInfo(user: String): List[TokenInfo] =
     sqlCtx.run {
       quote {
         query[TokenInfo].filter(_.user == lift(user))
@@ -20,10 +22,57 @@ class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
       }
     }
 
-  def insertTokenInfo(user: String, tokenType: String, accessToken: String, expiresAt: Int, refreshToken: String): Long =
+  def insertTokenInfo(tokenInfo: TokenInfo): Long =
     sqlCtx.run {
       quote {
-        query[TokenInfo].insert(TokenInfo(lift(user), lift(tokenType), lift(accessToken), lift(expiresAt), lift(refreshToken)))
+        query[TokenInfo].insert(lift(tokenInfo))
+      }
+    }
+
+  // imported_activity
+
+  def selectActivity(workoutBaseName: String): List[ImportedActivity] =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivity].filter(_.workoutBasename == lift(workoutBaseName))
+      }
+    }
+
+  def insertActivity(activity: ImportedActivity): Long =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivity].insert(lift(activity))
+      }
+    }
+
+  def updateActivity(activity: ImportedActivity): Long =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivity].filter(_.workoutBasename == lift(activity.workoutBasename)).update(lift(activity))
+      }
+    }
+
+  // imported_activity_step
+
+  def selectActivityStep(basename: String, step: String): List[ImportedActivityStep] =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivityStep].filter(x => x.workoutBasename == lift(basename) && x.stepName == lift(step))
+      }
+    }
+
+  def insertActivityStep(step: ImportedActivityStep): Long =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivityStep].insert(lift(step))
+      }
+    }
+
+  def deleteActivityStep(step: ImportedActivityStep): Long = deleteActivityStep(step.workoutBasename, step.stepName)
+  def deleteActivityStep(basename: String, step: String): Long =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivityStep].filter(x => x.workoutBasename == lift(basename) && x.stepName == lift(step)).delete
       }
     }
 

@@ -35,7 +35,7 @@ object Trial extends App with LazyLogging {
 
   val clientId = getConfigString("client-id")
   val clientSecret = getConfigString("client-secret")
-  val refreshToken = q.selectRefreshToken(user).map(_.refreshToken)
+  val refreshToken = q.selectTokenInfo(user).map(_.refreshToken)
     .headOption.getOrElse(getConfigString("refresh-token"))
 
   val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
@@ -49,7 +49,7 @@ object Trial extends App with LazyLogging {
     case Success(apiResponse) =>
       val ati = apiResponse.content
       q.deleteTokenInfo(user)
-      q.insertTokenInfo(user, ati.tokenType.get, ati.accessToken.get, ati.expiresAt.get, ati.refreshToken.get)
+      q.insertTokenInfo(TokenInfo(user, ati.tokenType.get, ati.accessToken.get, ati.expiresAt.get, ati.refreshToken.get))
     case Failure(e) =>
       logger.error(s"$e")
   }
