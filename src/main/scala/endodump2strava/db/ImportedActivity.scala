@@ -8,11 +8,3 @@ final case class ImportedActivity(
   activityId: Option[Long]
 )
 
-final case class ImportedActivityStep(
-  workoutBasename: String,
-  stepName: String,
-  responseCode: Int,
-  responseBody: String,
-  responseHeaders: String,
-  received: ZonedDateTime
-)
