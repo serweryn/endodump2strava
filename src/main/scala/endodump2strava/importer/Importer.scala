@@ -146,7 +146,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     private def saveActivityStep[A](f: Future[ApiResponse[A]], stepName: String): Future[ApiResponse[A]] = {
       f andThen { case a =>
         val (code, body, headers) = a match {
-          case Success(v) => (v.code, v.content.toString, v.headers.toString)
+          case Success(v) => (v.code, "", "")
           case Failure(ApiError(code, msg, content, _, headers)) => (code, s"$msg: $content", headers.toString)
           case Failure(e) => (ErrorCodes.OtherApiError, s"${e.getMessage}: ${e.getStackTrace.toString}", "")
         }
