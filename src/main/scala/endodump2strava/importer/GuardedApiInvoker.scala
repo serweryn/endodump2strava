@@ -11,8 +11,8 @@ class GuardedApiInvoker(invoker: ApiInvoker) {
 
   private val invalidateOnCodes = Seq(401, 429)
 
-  val invalidCode = 499
-  private val invalidMsg = "You cannot make any more requests now, please try again in 15 minutes"
+  val invalidCode: Int = ErrorCodes.InvalidApiConnection
+  val invalidMsg = "You cannot make any more requests now, please try again in 15 minutes"
 
   private[this] val stillValid = new AtomicBoolean(true)
 
