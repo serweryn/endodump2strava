@@ -1,5 +1,4 @@
 Things TO DO:
-* getUpload
 * updateActivity
 * add catching errors
 * add logging
@@ -15,3 +14,4 @@ DONE:
 * upload Activity
 * add non-blocking sleep after upload
 * logging with correlation id
+* getUpload

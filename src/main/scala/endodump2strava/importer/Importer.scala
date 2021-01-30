@@ -12,7 +12,7 @@ import io.swagger.client.core.{ApiError, ApiInvoker, ApiResponse}
 import org.slf4j.MDC
 
 import java.io.{File, FilenameFilter}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
@@ -94,14 +94,14 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   class SingleWorkoutImporter(stravaApi: RequestCreator)(implicit metadata: NameAndFilename) {
 
     def doImport(): Future[Unit] = {
-      ctxLogger.info("import started")
+      ctxLogger.info("starting import")
       val f = uploadWorkout() flatMap { uploadId =>
         getActivityId(uploadId) flatMap { activityId =>
           updateActivity(activityId, metadata)
         }
       }
       f andThen {
-        case Success(_) => ctxLogger.info("import finished successfully")
+        case Success(_) => ctxLogger.info("successful import")
         case Failure(e) => ctxLogger.error("error during import", e)
       }
     }
@@ -123,7 +123,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         } andThen {
           case _ => saveActivityStep(res, ImportedActivityStep.createUpload)
         } andThen {
-          case _ => ctxLogger.info(s"Activity uploaded, sleeping for $sleepAfterRequest...")
+          case _ => ctxLogger.info(s"successful upload, sleeping for $sleepAfterRequest before getting activityId...")
         } sleep {
           sleepAfterRequest
         }
@@ -141,7 +141,38 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       }
     }
 
-    private def getActivityId(uploadId: Long): Future[Long] = ???
+    private def getActivityId(uploadId: Long): Future[Long] = {
+      val activity = db.selectActivity(metadata.name).head
+      if (activity.activityId.nonEmpty) Future.successful(activity.activityId.get)
+      else {
+        ctxLogger.info("getting activityId")
+        db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
+        def getUpload() = {
+          val req = stravaApi.getUpload(uploadId)
+          invoker.execute(req)
+        }
+        getUpload() flatMap {
+          case r @ ApiResponse(_, body, _) =>
+            if (body.activityId.nonEmpty) Future.successful(r)
+            else {
+              ctxLogger.info("Strava returned empty activityId, sleeping 20 seconds before another try...")
+              Future().sleep(20.seconds).flatMap(_ => getUpload()) flatMap {
+                case r @ ApiResponse(_, body, _) =>
+                  if (body.activityId.nonEmpty) Future.successful(r)
+                  else Future.failed(new TimeoutException(s"couldn't fetch activityId"))
+              }
+            }
+        } andThen {
+          case t => saveActivityStep(Future.fromTry(t), ImportedActivityStep.getUpload)
+        } map {
+          case ApiResponse(_, body, _) =>
+            val activityId = body.activityId.get
+            ctxLogger.info(s"got activityId=${activityId}")
+            db.updateActivity(activity.copy(activityId = Option(activityId)))
+            activityId
+        }
+      }
+    }
 
     private def updateActivity(activityId: Long, metadata: NameAndFilename): Future[Unit] = ???
   }
