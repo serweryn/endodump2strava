@@ -148,7 +148,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         val (code, body, headers) = a match {
           case Success(v) => (v.code, "", "")
           case Failure(ApiError(code, msg, content, _, headers)) => (code, s"$msg: $content", headers.toString)
-          case Failure(e) => (ErrorCodes.OtherApiError, s"${e.getMessage}: ${e.getStackTrace.toString}", "")
+          case Failure(e) => (ErrorCodes.OtherApiError, s"${e.getMessage}: ${e.getStackTrace}", "")
         }
         db.insertActivityStep(ImportedActivityStep(metadata.name, stepName, code, body, headers))
       }
@@ -162,18 +162,18 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       } else {
         ctxLogger.info("getting activityId...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
-        def getUpload() = {
+        def upload() = {
           val req = stravaApi.getUpload(uploadId)
           invoker.execute(req)
         }
-        getUpload() flatMap {
+        upload() flatMap {
           case r @ ApiResponse(_, body, _) =>
             if (body.activityId.nonEmpty) Future.successful(r)
             else if (body.error.nonEmpty) Future.failed(new IllegalStateException(s"${body.status}: ${body.error}"))
             else {
               val moreSleep = 20.seconds
               ctxLogger.info(s"Strava returned empty activityId, sleeping $moreSleep before another try...")
-              Future(()).sleep(moreSleep).flatMap(_ => getUpload()) flatMap {
+              Future(()).sleep(moreSleep).flatMap(_ => upload()) flatMap {
                 case r @ ApiResponse(_, body, _) =>
                   if (body.activityId.nonEmpty) Future.successful(r)
                   else Future.failed(new TimeoutException(s"couldn't fetch activityId: ${body.status}, ${body.error}"))
@@ -184,7 +184,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         } map {
           case ApiResponse(_, body, _) =>
             val activityId = body.activityId.get
-            ctxLogger.info(s"got activityId=${activityId}")
+            ctxLogger.info(s"got activityId=$activityId")
             db.updateActivity(activity.copy(activityId = Option(activityId)))
             activityId
         }
