@@ -117,8 +117,10 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     private def uploadWorkout(): Future[Long] = {
       val activity = db.selectActivity(metadata.name).headOption
-      if (activity.nonEmpty) Future.successful(activity.get.uploadId)
-      else {
+      if (activity.nonEmpty) {
+        ctxLogger.info("activity already uploaded")
+        Future.successful(activity.get.uploadId)
+      } else {
         ctxLogger.info("starting upload...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.createUpload)
         db.deleteActivity(metadata.name)
@@ -152,8 +154,10 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     private def getActivityId(uploadId: Long): Future[Long] = {
       val activity = db.selectActivity(metadata.name).head
-      if (activity.activityId.nonEmpty) Future.successful(activity.activityId.get)
-      else {
+      if (activity.activityId.nonEmpty) {
+        ctxLogger.info("activityId already retrieved")
+        Future.successful(activity.activityId.get)
+      } else {
         ctxLogger.info("getting activityId...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
         def getUpload() = {
@@ -186,8 +190,10 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     private def updateActivity(activityId: Long): Future[Unit] = {
       val step = db.selectActivityStep(metadata.name, ImportedActivityStep.updateActivity).headOption
-      if (step.nonEmpty && successfulResponseCode(step.get.responseCode)) Future.successful(())
-      else {
+      if (step.nonEmpty && successfulResponseCode(step.get.responseCode)) {
+        ctxLogger.info("activity already updated")
+        Future.successful(())
+      } else {
         ctxLogger.info("updating activity...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.updateActivity)
         val workoutJsonFilename = s"$endoDirname/${metadata.name}.${WorkoutFileType.Json.extension}"
