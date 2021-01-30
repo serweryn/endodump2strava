@@ -1,7 +1,5 @@
 Things TO DO:
-* updateActivity
-* add catching errors
-* add logging
+* better names for unnamed activities
 
 DONE:
 * Strava API generation
@@ -15,3 +13,6 @@ DONE:
 * add non-blocking sleep after upload
 * logging with correlation id
 * getUpload
+* updateActivity
+* add catching errors
+* add logging
