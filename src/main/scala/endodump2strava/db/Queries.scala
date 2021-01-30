@@ -55,6 +55,13 @@ class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
       }
     }
 
+  def deleteActivity(workoutBaseName: String): Long =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivity].filter(_.workoutBasename == lift(workoutBaseName)).delete
+      }
+    }
+
   def updateActivity(activity: ImportedActivity): Long =
     sqlCtx.run {
       quote {

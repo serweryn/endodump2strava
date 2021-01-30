@@ -15,4 +15,13 @@ object ImportedActivityStep {
   val createUpload = "createUpload"
   val getUpload = "getUpload"
   val updateActivity = "updateActivity"
+
+  def apply(
+    workoutBasename: String,
+    stepName: String,
+    responseCode: Int,
+    responseBody: String,
+    responseHeaders: String): ImportedActivityStep =
+    apply(workoutBasename, stepName, responseCode, responseBody, responseHeaders, LocalDateTime.now())
+
 }

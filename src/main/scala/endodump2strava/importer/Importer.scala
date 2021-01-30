@@ -2,15 +2,16 @@ package endodump2strava.importer
 
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
-import endodump2strava.db.{Queries, TokenInfo}
+import endodump2strava.db.{ImportedActivity, ImportedActivityStep, Queries, TokenInfo}
 import endodump2strava.endo.WorkoutFileType
 import endodump2strava.importer.Importer.getConfigString
 import endodump2strava.strava.api.OAuthApi
 import io.getquill.{H2JdbcContext, SnakeCase}
-import io.swagger.client.core.ApiInvoker
+import io.swagger.client.core.{ApiError, ApiInvoker, ApiResponse}
 
 import java.io.{File, FilenameFilter}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class Importer(implicit system: ActorSystem) extends LazyLogging {
 
@@ -18,6 +19,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   private val invoker = new GuardedApiInvoker(ApiInvoker())
 
   private val user = "serweryn"
+  private val endoDirname = getConfigString("endo-workouts-dir")
   private val sqlCtx = new H2JdbcContext[SnakeCase](SnakeCase, "endodump2strava.db")
   system.registerOnTermination(sqlCtx.close())
 
@@ -26,12 +28,15 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   def doImport(): Unit = {
     val allWorkouts = allEndoWorkouts()
     val completedWorkouts = db.completedActivities().map(_.workoutBasename).toSet
-    val notCompletedWorkouts = allWorkouts.filterNot(x => completedWorkouts.contains(x.name))
+    val notCompletedWorkouts = allWorkouts.filterNot(x => completedWorkouts.contains(x.name)).sortBy(_.name)(Ordering[String].reverse)
 
     if (notCompletedWorkouts.isEmpty) return
 
     accessToken().map { token =>
       val stravaApi = new RequestCreator(token)
+      val workoutImporter = new WorkoutImporter(stravaApi)
+
+      workoutImporter.importSingle(notCompletedWorkouts.head)
     }
   }
 
@@ -57,7 +62,6 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   case class NameAndFilename(name: String, filename: String)
 
   def allEndoWorkouts(): Seq[NameAndFilename] = {
-    val endoDirname = getConfigString("endo-workouts-dir")
     val endoDir = new File(endoDirname)
     if (!endoDir.exists() || !endoDir.isDirectory)
       throw new IllegalArgumentException(s"$endoDirname does not exist or is not a directory")
@@ -72,6 +76,52 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     }
 
     tcxFiles.map(f => NameAndFilename(f.getName.replace(`.tcx.gz`, ""), f.getAbsolutePath))
+  }
+
+  class WorkoutImporter(stravaApi: RequestCreator) {
+    def importSingle(metadata: NameAndFilename): Future[Unit] = {
+      uploadWorkout(metadata) flatMap { uploadId =>
+        getActivityId(uploadId) flatMap { activityId =>
+          updateActivity(activityId, metadata)
+        }
+      }
+    }
+
+    private def uploadWorkout(meta: NameAndFilename): Future[Long] = {
+      val activity = db.selectActivity(meta.name).headOption
+      if (activity.nonEmpty && activity.get.uploadId.nonEmpty) Future.successful(activity.get.uploadId.get)
+      else {
+        db.deleteActivityStep(meta.name, ImportedActivityStep.createUpload)
+        db.deleteActivity(meta.name)
+        val req = stravaApi.createUpload(meta.filename, meta.name, WorkoutFileType.TcxGz.extension)
+        val res = invoker.execute(req)
+        res map {
+          case ApiResponse(_, body, _) => body.id.get
+        } andThen {
+          case Success(id) => db.insertActivity(ImportedActivity(meta.name, Option(id), None))
+        } andThen {
+          case _ => saveActivityStep(res, meta.name, ImportedActivityStep.createUpload)
+        } andThen {
+          case _ => logger.debug("sleeping...")
+            Thread.sleep(10000) // TODO: change to non-blocking
+        }
+      }
+    }
+
+    private def saveActivityStep[A](f: Future[ApiResponse[A]], workoutBasename: String, stepName: String): Future[ApiResponse[A]] = {
+      f andThen { case a =>
+        val (code, body, headers) = a match {
+          case Success(v) => (v.code, v.content.toString, v.headers.toString)
+          case Failure(ApiError(code, msg, content, _, headers)) => (code, s"$msg: $content", headers.toString)
+          case Failure(e) => (499, e.getMessage, "")
+        }
+        db.insertActivityStep(ImportedActivityStep(workoutBasename, stepName, code, body, headers))
+      }
+    }
+
+    private def getActivityId(uploadId: Long): Future[Long] = ???
+
+    private def updateActivity(activityId: Long, metadata: NameAndFilename): Future[Unit] = ???
   }
 
 }
