@@ -53,9 +53,15 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     accessToken().map { token =>
       val stravaApi = new RequestCreator(token)
-      val workoutImporter = new SingleWorkoutImporter(stravaApi)(notCompletedWorkouts.head)
-      workoutImporter.doImport()
+      notCompletedWorkouts.foreach { x =>
+        if (!invoker.valid) return
+        val workoutImporter = new SingleWorkoutImporter(stravaApi)(x)
+        workoutImporter.doImport()
+        Thread.sleep(5000)
+      }
     }
+
+    logger.info("done for this round...")
   }
 
   private def accessToken(): Future[String] = {
@@ -126,7 +132,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         } andThen {
           case _ => saveActivityStep(res, ImportedActivityStep.createUpload)
         } andThen {
-          case _ => ctxLogger.info(s"successful upload, sleeping for $sleepAfterRequest before getting activityId...")
+          case Success(id) => ctxLogger.info(s"got uploadId=$id, sleeping for $sleepAfterRequest before getting activityId...")
         } sleep {
           sleepAfterRequest
         }
@@ -158,8 +164,9 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
           case r @ ApiResponse(_, body, _) =>
             if (body.activityId.nonEmpty) Future.successful(r)
             else {
-              ctxLogger.info("Strava returned empty activityId, sleeping 20 seconds before another try...")
-              Future(()).sleep(20.seconds).flatMap(_ => getUpload()) flatMap {
+              val moreSleep = 20.seconds
+              ctxLogger.info(s"Strava returned empty activityId, sleeping $moreSleep before another try...")
+              Future(()).sleep(moreSleep).flatMap(_ => getUpload()) flatMap {
                 case r @ ApiResponse(_, body, _) =>
                   if (body.activityId.nonEmpty) Future.successful(r)
                   else Future.failed(new TimeoutException(s"couldn't fetch activityId"))
@@ -179,7 +186,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     private def updateActivity(activityId: Long): Future[Unit] = {
       val step = db.selectActivityStep(metadata.name, ImportedActivityStep.updateActivity).headOption
-      if (step.nonEmpty && step.get.responseCode < 300) Future.successful(())
+      if (step.nonEmpty && successfulResponseCode(step.get.responseCode)) Future.successful(())
       else {
         ctxLogger.info("updating activity...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.updateActivity)
@@ -192,10 +199,14 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
           case _ => saveActivityStep(res, ImportedActivityStep.updateActivity)
         } flatMap {
           case ApiResponse(code, _, _) =>
-            if (code < 300) Future.successful(())
+            if (successfulResponseCode(code)) Future.successful(())
             else Future.failed(new IllegalStateException("got error response code for updateActivity"))
         }
       }
+    }
+
+    private def successfulResponseCode(code: Int) = {
+      code < 300
     }
   }
 
