@@ -3,15 +3,16 @@ package endodump2strava.importer
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.{CanLog, LazyLogging, Logger}
 import endodump2strava.db.{ImportedActivity, ImportedActivityStep, Queries, TokenInfo}
-import endodump2strava.endo.WorkoutFileType
+import endodump2strava.endo.{Workout, WorkoutFileType}
 import endodump2strava.importer.Implicits.RichFuture
 import endodump2strava.importer.Importer.getConfigString
 import endodump2strava.strava.api.OAuthApi
 import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiError, ApiInvoker, ApiResponse}
 import org.slf4j.MDC
+import play.api.libs.json.Json
 
-import java.io.{File, FilenameFilter}
+import java.io.{File, FileInputStream, FilenameFilter}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -94,10 +95,10 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   class SingleWorkoutImporter(stravaApi: RequestCreator)(implicit metadata: NameAndFilename) {
 
     def doImport(): Future[Unit] = {
-      ctxLogger.info("starting import")
+      ctxLogger.info("starting import...")
       val f = uploadWorkout() flatMap { uploadId =>
         getActivityId(uploadId) flatMap { activityId =>
-          updateActivity(activityId, metadata)
+          updateActivity(activityId)
         }
       }
       f andThen {
@@ -110,7 +111,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       val activity = db.selectActivity(metadata.name).headOption
       if (activity.nonEmpty) Future.successful(activity.get.uploadId)
       else {
-        ctxLogger.info("starting upload")
+        ctxLogger.info("starting upload...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.createUpload)
         db.deleteActivity(metadata.name)
         val req = stravaApi.createUpload(metadata.filename, metadata.name, WorkoutFileType.TcxGz.extension)
@@ -145,7 +146,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       val activity = db.selectActivity(metadata.name).head
       if (activity.activityId.nonEmpty) Future.successful(activity.activityId.get)
       else {
-        ctxLogger.info("getting activityId")
+        ctxLogger.info("getting activityId...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
         def getUpload() = {
           val req = stravaApi.getUpload(uploadId)
@@ -156,7 +157,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
             if (body.activityId.nonEmpty) Future.successful(r)
             else {
               ctxLogger.info("Strava returned empty activityId, sleeping 20 seconds before another try...")
-              Future().sleep(20.seconds).flatMap(_ => getUpload()) flatMap {
+              Future(()).sleep(20.seconds).flatMap(_ => getUpload()) flatMap {
                 case r @ ApiResponse(_, body, _) =>
                   if (body.activityId.nonEmpty) Future.successful(r)
                   else Future.failed(new TimeoutException(s"couldn't fetch activityId"))
@@ -174,7 +175,26 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       }
     }
 
-    private def updateActivity(activityId: Long, metadata: NameAndFilename): Future[Unit] = ???
+    private def updateActivity(activityId: Long): Future[Unit] = {
+      val step = db.selectActivityStep(metadata.name, ImportedActivityStep.updateActivity).headOption
+      if (step.nonEmpty && step.get.responseCode < 300) Future.successful(())
+      else {
+        ctxLogger.info("updating activity...")
+        db.deleteActivityStep(metadata.name, ImportedActivityStep.updateActivity)
+        val workoutJsonFilename = s"$endoDirname/${metadata.name}.${WorkoutFileType.Json.extension}"
+        val workoutJson = Json.parse(new FileInputStream(workoutJsonFilename))
+        val workout = Workout(workoutJson)
+        val req = stravaApi.updateActivity(activityId, workout)
+        val res = invoker.execute(req)
+        res andThen {
+          case _ => saveActivityStep(res, ImportedActivityStep.updateActivity)
+        } flatMap {
+          case ApiResponse(code, _, _) =>
+            if (code < 300) Future.successful(())
+            else Future.failed(new IllegalStateException("got error response code for updateActivity"))
+        }
+      }
+    }
   }
 
 }
