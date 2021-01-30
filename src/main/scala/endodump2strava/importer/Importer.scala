@@ -54,14 +54,14 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     accessToken().map { token =>
       val stravaApi = new RequestCreator(token)
       notCompletedWorkouts.foreach { x =>
-        if (!invoker.valid) return
-        val workoutImporter = new SingleWorkoutImporter(stravaApi)(x)
-        workoutImporter.doImport()
-        Thread.sleep(5000)
+        if (invoker.valid) {
+          val workoutImporter = new SingleWorkoutImporter(stravaApi)(x)
+          workoutImporter.doImport()
+          Thread.sleep(5000)
+        }
       }
+      logger.info("done for this round...")
     }
-
-    logger.info("done for this round...")
   }
 
   private def accessToken(): Future[String] = {
