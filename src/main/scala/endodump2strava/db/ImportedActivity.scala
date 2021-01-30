@@ -4,7 +4,7 @@ import java.time.ZonedDateTime
 
 final case class ImportedActivity(
   workoutBasename: String,
-  uploadId: Option[Long],
+  uploadId: Long,
   activityId: Option[Long]
 )
 

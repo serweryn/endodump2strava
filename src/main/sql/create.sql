@@ -9,7 +9,7 @@ create table if not exists token_info (
 
 create table if not exists imported_activity (
     workout_basename varchar(255) not null,
-    upload_id bigint,
+    upload_id bigint not null,
     activity_id bigint,
     primary key (workout_basename)
 );

@@ -89,7 +89,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     private def uploadWorkout(meta: NameAndFilename): Future[Long] = {
       val activity = db.selectActivity(meta.name).headOption
-      if (activity.nonEmpty && activity.get.uploadId.nonEmpty) Future.successful(activity.get.uploadId.get)
+      if (activity.nonEmpty) Future.successful(activity.get.uploadId)
       else {
         db.deleteActivityStep(meta.name, ImportedActivityStep.createUpload)
         db.deleteActivity(meta.name)
@@ -98,7 +98,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         res map {
           case ApiResponse(_, body, _) => body.id.get
         } andThen {
-          case Success(id) => db.insertActivity(ImportedActivity(meta.name, Option(id), None))
+          case Success(id) => db.insertActivity(ImportedActivity(meta.name, id, None))
         } andThen {
           case _ => saveActivityStep(res, meta.name, ImportedActivityStep.createUpload)
         } andThen {
