@@ -13,7 +13,7 @@ import org.slf4j.MDC
 import play.api.libs.json.Json
 
 import java.io.{File, FileInputStream, FilenameFilter}
-import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{blocking, ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
@@ -57,7 +57,9 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         if (invoker.valid) {
           val workoutImporter = new SingleWorkoutImporter(stravaApi)(x)
           workoutImporter.doImport()
-          Thread.sleep(5000)
+          blocking {
+            Thread.sleep(5.seconds.toMillis)
+          }
         }
       }
       logger.info("done for this round...")
@@ -168,7 +170,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
           case r @ ApiResponse(_, body, _) =>
             if (body.activityId.nonEmpty) Future.successful(r)
             else {
-              val moreSleep = 20.seconds
+              val moreSleep = 30.seconds
               ctxLogger.info(s"Strava returned empty activityId, sleeping $moreSleep before another try...")
               Future(()).sleep(moreSleep).flatMap(_ => getUpload()) flatMap {
                 case r @ ApiResponse(_, body, _) =>
