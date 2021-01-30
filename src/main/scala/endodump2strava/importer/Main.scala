@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext
+import scala.language.postfixOps
 
 object Main extends App {
 
