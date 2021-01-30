@@ -47,6 +47,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     val completedWorkouts = db.completedActivities().map(_.workoutBasename).toSet
     val notCompletedWorkouts = allWorkouts.filterNot(x => completedWorkouts.contains(x.name)).sortBy(_.name)(Ordering[String].reverse)
 
+    logger.info(s"already completed ${completedWorkouts.size} of ${allWorkouts.size}, resuming...")
+
     if (notCompletedWorkouts.isEmpty) return
 
     accessToken().map { token =>
