@@ -1,5 +1,4 @@
 Things TO DO:
-* logging with correlation id
 * getUpload
 * updateActivity
 * add catching errors
@@ -15,3 +14,4 @@ DONE:
 * handle 401 and 429 errors
 * upload Activity
 * add non-blocking sleep after upload
+* logging with correlation id

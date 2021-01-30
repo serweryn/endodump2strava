@@ -1,7 +1,7 @@
 package endodump2strava.importer
 
 import akka.actor.ActorSystem
-import com.typesafe.scalalogging.LazyLogging
+import com.typesafe.scalalogging.{CanLog, LazyLogging, Logger}
 import endodump2strava.db.{ImportedActivity, ImportedActivityStep, Queries, TokenInfo}
 import endodump2strava.endo.WorkoutFileType
 import endodump2strava.importer.Implicits.RichFuture
@@ -9,6 +9,7 @@ import endodump2strava.importer.Importer.getConfigString
 import endodump2strava.strava.api.OAuthApi
 import io.getquill.{H2JdbcContext, SnakeCase}
 import io.swagger.client.core.{ApiError, ApiInvoker, ApiResponse}
+import org.slf4j.MDC
 
 import java.io.{File, FilenameFilter}
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,6 +18,18 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 class Importer(implicit system: ActorSystem) extends LazyLogging {
+  case class NameAndFilename(name: String, filename: String)
+
+  private implicit case object CanLogNameAndFilename extends CanLog[NameAndFilename] {
+    val correlationId  = "correlationId"
+    override def logMessage(originalMsg: String, a: NameAndFilename): String = {
+      MDC.put(correlationId, a.name)
+      originalMsg
+    }
+    override def afterLog(a: NameAndFilename): Unit = MDC.remove(correlationId)
+  }
+
+  private val ctxLogger = Logger.takingImplicit[NameAndFilename]("ctx-logger")
 
   private implicit val ec: ExecutionContext = system.dispatcher
   private val invoker = new GuardedApiInvoker(ApiInvoker())
@@ -37,9 +50,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     accessToken().map { token =>
       val stravaApi = new RequestCreator(token)
-      val workoutImporter = new WorkoutImporter(stravaApi)
-
-      workoutImporter.importSingle(notCompletedWorkouts.head)
+      val workoutImporter = new SingleWorkoutImporter(stravaApi)(notCompletedWorkouts.head)
+      workoutImporter.doImport()
     }
   }
 
@@ -62,9 +74,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     }
   }
 
-  case class NameAndFilename(name: String, filename: String)
-
-  def allEndoWorkouts(): Seq[NameAndFilename] = {
+  private def allEndoWorkouts(): Seq[NameAndFilename] = {
     val endoDir = new File(endoDirname)
     if (!endoDir.exists() || !endoDir.isDirectory)
       throw new IllegalArgumentException(s"$endoDirname does not exist or is not a directory")
@@ -81,46 +91,53 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     tcxFiles.map(f => NameAndFilename(f.getName.replace(`.tcx.gz`, ""), f.getAbsolutePath))
   }
 
-  class WorkoutImporter(stravaApi: RequestCreator) {
-    def importSingle(metadata: NameAndFilename): Future[Unit] = {
-      uploadWorkout(metadata) flatMap { uploadId =>
+  class SingleWorkoutImporter(stravaApi: RequestCreator)(implicit metadata: NameAndFilename) {
+
+    def doImport(): Future[Unit] = {
+      ctxLogger.info("import started")
+      val f = uploadWorkout() flatMap { uploadId =>
         getActivityId(uploadId) flatMap { activityId =>
           updateActivity(activityId, metadata)
         }
       }
+      f andThen {
+        case Success(_) => ctxLogger.info("import finished successfully")
+        case Failure(e) => ctxLogger.error("error during import", e)
+      }
     }
 
-    private def uploadWorkout(meta: NameAndFilename): Future[Long] = {
-      val activity = db.selectActivity(meta.name).headOption
+    private def uploadWorkout(): Future[Long] = {
+      val activity = db.selectActivity(metadata.name).headOption
       if (activity.nonEmpty) Future.successful(activity.get.uploadId)
       else {
-        db.deleteActivityStep(meta.name, ImportedActivityStep.createUpload)
-        db.deleteActivity(meta.name)
-        val req = stravaApi.createUpload(meta.filename, meta.name, WorkoutFileType.TcxGz.extension)
+        ctxLogger.info("starting upload")
+        db.deleteActivityStep(metadata.name, ImportedActivityStep.createUpload)
+        db.deleteActivity(metadata.name)
+        val req = stravaApi.createUpload(metadata.filename, metadata.name, WorkoutFileType.TcxGz.extension)
         val res = invoker.execute(req)
         val sleepAfterRequest = 10.seconds
         res map {
           case ApiResponse(_, body, _) => body.id.get
         } andThen {
-          case Success(id) => db.insertActivity(ImportedActivity(meta.name, id, None))
+          case Success(id) => db.insertActivity(ImportedActivity(metadata.name, id, None))
         } andThen {
-          case _ => saveActivityStep(res, meta.name, ImportedActivityStep.createUpload)
+          case _ => saveActivityStep(res, ImportedActivityStep.createUpload)
         } andThen {
-          case _ => logger.info(s"Sleeping for $sleepAfterRequest...")
+          case _ => ctxLogger.info(s"Activity uploaded, sleeping for $sleepAfterRequest...")
         } sleep {
           sleepAfterRequest
         }
       }
     }
 
-    private def saveActivityStep[A](f: Future[ApiResponse[A]], workoutBasename: String, stepName: String): Future[ApiResponse[A]] = {
+    private def saveActivityStep[A](f: Future[ApiResponse[A]], stepName: String): Future[ApiResponse[A]] = {
       f andThen { case a =>
         val (code, body, headers) = a match {
           case Success(v) => (v.code, v.content.toString, v.headers.toString)
           case Failure(ApiError(code, msg, content, _, headers)) => (code, s"$msg: $content", headers.toString)
           case Failure(e) => (498, s"${e.getMessage}: ${e.getStackTrace.toString}", "")
         }
-        db.insertActivityStep(ImportedActivityStep(workoutBasename, stepName, code, body, headers))
+        db.insertActivityStep(ImportedActivityStep(metadata.name, stepName, code, body, headers))
       }
     }
 
