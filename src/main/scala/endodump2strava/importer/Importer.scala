@@ -171,7 +171,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
             if (body.activityId.nonEmpty) Future.successful(r)
             else if (body.error.nonEmpty) Future.failed(new IllegalStateException(s"${body.status}: ${body.error}"))
             else {
-              val moreSleep = 30.seconds
+              val moreSleep = 20.seconds
               ctxLogger.info(s"Strava returned empty activityId, sleeping $moreSleep before another try...")
               Future(()).sleep(moreSleep).flatMap(_ => getUpload()) flatMap {
                 case r @ ApiResponse(_, body, _) =>
