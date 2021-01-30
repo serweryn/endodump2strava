@@ -16,3 +16,4 @@ DONE:
 * add catching errors
 * add logging
 * better names for unnamed activities
+* improve timeout handling
