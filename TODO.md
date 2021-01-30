@@ -1,5 +1,4 @@
 Things TO DO:
-* better names for unnamed activities
 
 DONE:
 * Strava API generation
@@ -16,3 +15,4 @@ DONE:
 * updateActivity
 * add catching errors
 * add logging
+* better names for unnamed activities

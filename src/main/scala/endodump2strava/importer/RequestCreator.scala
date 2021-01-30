@@ -14,7 +14,7 @@ class RequestCreator(accessToken: String) {
   def createUpload(filename: String, name: String, dataType: String): ApiRequest[Upload] = {
     UploadsApi.createUpload(
       file = o(new File(filename)),
-      name = o(name),
+      name = o(name.replace(' ', '_')),
       dataType = o(dataType),
       externalId = o(name))
       .addApiKey()
