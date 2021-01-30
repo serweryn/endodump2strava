@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
 import endodump2strava.db.{ImportedActivity, ImportedActivityStep, Queries, TokenInfo}
 import endodump2strava.endo.WorkoutFileType
+import endodump2strava.importer.Implicits.RichFuture
 import endodump2strava.importer.Importer.getConfigString
 import endodump2strava.strava.api.OAuthApi
 import io.getquill.{H2JdbcContext, SnakeCase}
@@ -11,6 +12,8 @@ import io.swagger.client.core.{ApiError, ApiInvoker, ApiResponse}
 
 import java.io.{File, FilenameFilter}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 class Importer(implicit system: ActorSystem) extends LazyLogging {
@@ -95,6 +98,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         db.deleteActivity(meta.name)
         val req = stravaApi.createUpload(meta.filename, meta.name, WorkoutFileType.TcxGz.extension)
         val res = invoker.execute(req)
+        val sleepAfterRequest = 10.seconds
         res map {
           case ApiResponse(_, body, _) => body.id.get
         } andThen {
@@ -102,8 +106,9 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         } andThen {
           case _ => saveActivityStep(res, meta.name, ImportedActivityStep.createUpload)
         } andThen {
-          case _ => logger.debug("sleeping...")
-            Thread.sleep(10000) // TODO: change to non-blocking
+          case _ => logger.info(s"Sleeping for $sleepAfterRequest...")
+        } sleep {
+          sleepAfterRequest
         }
       }
     }

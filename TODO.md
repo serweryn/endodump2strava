@@ -1,5 +1,4 @@
 Things TO DO:
-* add non-blocking sleep after upload
 * logging with correlation id
 * getUpload
 * updateActivity
@@ -15,3 +14,4 @@ DONE:
 * add auth to request
 * handle 401 and 429 errors
 * upload Activity
+* add non-blocking sleep after upload
