@@ -3,6 +3,7 @@ name := "importer"
 version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.11.12"
+val scalacOptionsWarn = Seq("-deprecation", "-feature", "-unchecked")
 
 val jacksonVersion = "2.9.8"
 val overrides = Seq(
@@ -26,10 +27,12 @@ lazy val importer = (project in file("."))
       "io.getquill" %% "quill-jdbc" % "3.6.0",
 //      "org.scalatest" %% "scalatest" % "3.2.3" % Test
     ),
-    dependencyOverrides ++= overrides
+    dependencyOverrides ++= overrides,
+    scalacOptions ++= scalacOptionsWarn
   )
 
 lazy val `strava-api` = (project in file("strava-api"))
   .settings(
-    dependencyOverrides ++= overrides
+    dependencyOverrides ++= overrides,
+    scalacOptions ++= scalacOptionsWarn
   )
