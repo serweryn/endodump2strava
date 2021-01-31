@@ -110,14 +110,12 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     def doImport(): Future[Unit] = {
       ctxLogger.info("starting import...")
-      val f = uploadWorkout() flatMap { uploadId =>
-        getActivityId(uploadId) flatMap { activityId =>
-          updateActivity(activityId)
-        }
-      }
-      f andThen {
+      val uploadId = uploadWorkout()
+      val activityId = uploadId.flatMap(getActivityId)
+      val update = activityId.flatMap(updateActivity)
+      update andThen {
         case Success(_) => ctxLogger.info("successful import")
-        case Failure(e) => ctxLogger.warn(s"error during import: ${e.getMessage}")
+        case Failure(e) => ctxLogger.error(s"error during import: ${e.getMessage}")
       }
     }
 
