@@ -10,9 +10,13 @@ object Main extends App {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val ec: ExecutionContext = system.dispatcher
-  val importer = new Importer()
 
-  val importTask = system.scheduler.schedule(0 seconds, 15 minutes)(importer.doImport())
+  def doImport(): Unit = {
+    val importer = new Importer()
+    importer.doImport()
+  }
+
+  val importTask = system.scheduler.schedule(0 seconds, 15 minutes)(doImport())
   system.registerOnTermination(importTask.cancel())
 
 }
