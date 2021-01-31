@@ -169,22 +169,22 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       } else {
         ctxLogger.info("getting activityId...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
-        def upload() = {
-          val req = stravaApi.getUpload(uploadId)
-          invoker.execute(req)
-        }
-        upload() flatMap {
-          case r @ ApiResponse(_, body, _) =>
+        val req = stravaApi.getUpload(uploadId)
+        val res = invoker.execute(req)
+        res flatMap {
+          case r @ ApiResponse(_, body, headers) =>
             if (body.activityId.nonEmpty) Future.successful(r)
-            else if (body.error.nonEmpty) Future.failed(new IllegalStateException(s"${body.status}: ${body.error}"))
             else {
-              val moreSleep = 20.seconds
-              ctxLogger.info(s"Strava returned empty activityId, sleeping $moreSleep before another try...")
-              Future(()).sleep(moreSleep).flatMap(_ => upload()) flatMap {
-                case r @ ApiResponse(_, body, _) =>
-                  if (body.activityId.nonEmpty) Future.successful(r)
-                  else Future.failed(new TimeoutException(s"couldn't fetch activityId: ${body.status}, ${body.error}"))
-              }
+              def get(o: Option[String]) = o.getOrElse("got empty from Strava")
+              val status = get(body.status)
+              val error = get(body.error)
+              val msg = s"${status}: ${error}"
+              def apiError(code: Int) = Future.failed(ApiError(code, msg, Option(body), headers = headers))
+
+              // for duplicates and empty files use "successful" code (less than 300) to not repeat them in next runs
+              if (error.contains("duplicate of activity")) apiError(297)
+              else if (error.contains("The file is empty")) apiError(298)
+              else Future.failed(new IllegalStateException((msg)))
             }
         } andThen {
           case t => saveActivityStep(Future.fromTry(t), ImportedActivityStep.getUpload)
