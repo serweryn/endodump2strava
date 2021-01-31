@@ -72,6 +72,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     val refreshToken = db.selectTokenInfo(user).map(_.refreshToken)
       .headOption.getOrElse(getConfigString("refresh-token"))
 
+    logger.info("refreshing access_token")
+
     val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
     val response = invoker.execute(request)
 
