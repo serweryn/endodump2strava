@@ -175,7 +175,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
           case r @ ApiResponse(_, body, headers) =>
             if (body.activityId.nonEmpty) Future.successful(r)
             else {
-              def get(o: Option[String]) = o.getOrElse("got empty from Strava")
+              def get(o: Option[String]) = o.getOrElse("")
               val status = get(body.status)
               val error = get(body.error)
               val msg = s"$status: $error"
