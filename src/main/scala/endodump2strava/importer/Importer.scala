@@ -132,7 +132,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         db.deleteActivity(metadata.name)
         val req = stravaApi.createUpload(metadata.filename, metadata.name, WorkoutFileType.TcxGz.extension)
         val res = invoker.execute(req)
-        val sleepAfterRequest = 10.seconds
+        val sleepAfterRequest = 20.seconds
         res map {
           case ApiResponse(_, body, _) => body.id.get
         } andThen {
