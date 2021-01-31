@@ -117,7 +117,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       }
       f andThen {
         case Success(_) => ctxLogger.info("successful import")
-        case Failure(e) => ctxLogger.error("error during import", e)
+        case Failure(e) => ctxLogger.warn(s"error during import: ${e.getMessage}")
       }
     }
 
@@ -152,7 +152,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         val (code, body, headers) = a match {
           case Success(v) => (v.code, "", "")
           case Failure(ApiError(code, msg, content, _, headers)) => (code, s"$msg: $content", headers.toString)
-          case Failure(e) => (ErrorCodes.OtherApiError, s"${e.getMessage}: ${e.getStackTrace}", "")
+          case Failure(e) => (ErrorCodes.OtherApiError, s"${e.getMessage}", "")
         }
         db.insertActivityStep(ImportedActivityStep(metadata.name, stepName, code, body, headers))
       }
@@ -165,8 +165,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         ctxLogger.info("activityId already retrieved")
         Future.successful(activity.activityId.get)
       } else if (step.nonEmpty && successfulResponseCode(step.get.responseCode)) {
-        ctxLogger.warn("ignoring because of manual override")
-        Future.failed(new IllegalStateException("ignored because of manual override"))
+        Future.failed(new IllegalStateException("ignored because of override"))
       } else {
         ctxLogger.info("getting activityId...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
