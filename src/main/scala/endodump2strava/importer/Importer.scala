@@ -156,9 +156,13 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     private def getActivityId(uploadId: Long): Future[Long] = {
       val activity = db.selectActivity(metadata.name).head
+      val step = db.selectActivityStep(metadata.name, ImportedActivityStep.getUpload).headOption
       if (activity.activityId.nonEmpty) {
         ctxLogger.info("activityId already retrieved")
         Future.successful(activity.activityId.get)
+      } else if (step.nonEmpty && successfulResponseCode(step.get.responseCode)) {
+        ctxLogger.warn("ignoring because of manual override")
+        Future.failed(new IllegalStateException("ignored because of manual override"))
       } else {
         ctxLogger.info("getting activityId...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.getUpload)
