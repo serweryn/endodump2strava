@@ -51,6 +51,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
 
     if (notCompletedWorkouts.isEmpty) return
 
+    invoker.reset()
+
     accessToken().map { token =>
       val stravaApi = new RequestCreator(token)
       notCompletedWorkouts.foreach { x =>

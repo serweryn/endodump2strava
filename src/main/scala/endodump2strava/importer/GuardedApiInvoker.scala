@@ -31,6 +31,8 @@ class GuardedApiInvoker(invoker: ApiInvoker) {
 
   def valid: Boolean = stillValid.get()
 
+  def reset(): Unit = stillValid.set(true)
+
   private def respondWithInvalid[T](): Future[ApiResponse[T]] =
     Future.failed(ApiError(invalidCode, invalidMsg, None))
 
