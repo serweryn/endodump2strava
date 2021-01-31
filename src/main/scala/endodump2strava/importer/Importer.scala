@@ -13,7 +13,7 @@ import org.slf4j.MDC
 import play.api.libs.json.Json
 
 import java.io.{File, FileInputStream, FilenameFilter}
-import scala.concurrent.{blocking, ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{blocking, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
@@ -178,13 +178,13 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
               def get(o: Option[String]) = o.getOrElse("got empty from Strava")
               val status = get(body.status)
               val error = get(body.error)
-              val msg = s"${status}: ${error}"
+              val msg = s"$status: $error"
               def apiError(code: Int) = Future.failed(ApiError(code, msg, Option(body), headers = headers))
 
               // for duplicates and empty files use "successful" code (less than 300) to not repeat them in next runs
               if (error.contains("duplicate of activity")) apiError(297)
               else if (error.contains("The file is empty")) apiError(298)
-              else Future.failed(new IllegalStateException((msg)))
+              else Future.failed(new IllegalStateException(msg))
             }
         } andThen {
           case t => saveActivityStep(Future.fromTry(t), ImportedActivityStep.getUpload)
