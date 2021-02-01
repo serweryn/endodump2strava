@@ -1,5 +1,6 @@
 package endodump2strava.db
 
+import endodump2strava.importer.ErrorCodes.SuccessfulCodes
 import io.getquill.{H2JdbcContext, SnakeCase}
 
 class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
@@ -47,6 +48,18 @@ class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
         }
       }
     }
+
+  def ignoredActivities(): List[ImportedActivity] =
+    sqlCtx.run {
+      quote {
+        query[ImportedActivity].filter { a =>
+          query[ImportedActivityStep].filter(s => s.workoutBasename == a.workoutBasename &&
+            s.stepName == lift(ImportedActivityStep.getUpload) &&
+              s.responseCode >= lift(SuccessfulCodes.min) && s.responseCode <= lift(SuccessfulCodes.max)).nonEmpty
+        }
+      }
+    }
+
 
   def insertActivity(activity: ImportedActivity): Long =
     sqlCtx.run {

@@ -45,9 +45,15 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   def doImport(): Unit = {
     val allWorkouts = allEndoWorkouts()
     val completedWorkouts = db.completedActivities().map(_.workoutBasename).toSet
-    val notCompletedWorkouts = allWorkouts.filterNot(x => completedWorkouts.contains(x.name)).sortBy(_.name)(Ordering[String].reverse)
+    val ignoredWorkouts = db.ignoredActivities().map(_.workoutBasename).toSet
+    val notCompletedWorkouts =
+      allWorkouts
+        .filterNot(x => completedWorkouts.contains(x.name))
+        .filterNot(x => ignoredWorkouts.contains(x.name))
+        .sortBy(_.name)(Ordering[String].reverse)
 
-    logger.info(s"already completed ${completedWorkouts.size} of ${allWorkouts.size}, resuming...")
+    logger.info(s"already processed ${completedWorkouts.size+ignoredWorkouts.size} " +
+      s"(${completedWorkouts.size} completed, ${ignoredWorkouts.size} ignored) of ${allWorkouts.size}, resuming...")
 
     if (notCompletedWorkouts.isEmpty) return
 
@@ -180,8 +186,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
               def apiError(code: Int) = Future.failed(ApiError(code, msg, Option(body), headers = headers))
 
               // for duplicates and empty files use "successful" code (less than 300) to not repeat them in next runs
-              if (error.contains("duplicate of activity")) apiError(297)
-              else if (error.contains("The file is empty")) apiError(298)
+              if (error.contains("duplicate of activity")) apiError(ErrorCodes.DuplicateActivity)
+              else if (error.contains("The file is empty")) apiError(ErrorCodes.EmptyFile)
               else Future.failed(new IllegalStateException(msg))
             }
         } andThen {
