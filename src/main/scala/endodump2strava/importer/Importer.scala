@@ -77,21 +77,31 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   private def accessToken(): Future[String] = {
     val clientId = getConfigString("client-id")
     val clientSecret = getConfigString("client-secret")
-    val refreshToken = db.selectTokenInfo(user).map(_.refreshToken)
-      .headOption.getOrElse(getConfigString("refresh-token"))
+    val tokenInfo = db.selectTokenInfo(user).headOption
 
-    logger.info("refreshing access_token")
+    def notExpiresSoon(ti: TokenInfo): Boolean =
+      ti.expiresAt > (System.currentTimeMillis()/1000 + 15*60)
 
-    val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
-    val response = invoker.execute(request)
+    if (tokenInfo.nonEmpty && notExpiresSoon(tokenInfo.get)) {
+      logger.info("reusing access_token")
+      Future.successful(tokenInfo.get.accessToken)
+    } else {
+      val refreshToken = tokenInfo.map(_.refreshToken)
+        .getOrElse(getConfigString("refresh-token"))
 
-    response.map { apiResponse =>
-      val ati = apiResponse.content
-      sqlCtx.transaction {
-        db.deleteTokenInfo(user)
-        db.insertTokenInfo(TokenInfo(user, ati.tokenType.get, ati.accessToken.get, ati.expiresAt.get, ati.refreshToken.get))
+      logger.info("refreshing access_token...")
+
+      val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
+      val response = invoker.execute(request)
+
+      response.map { apiResponse =>
+        val ati = apiResponse.content
+        sqlCtx.transaction {
+          db.deleteTokenInfo(user)
+          db.insertTokenInfo(TokenInfo(user, ati.tokenType.get, ati.accessToken.get, ati.expiresAt.get, ati.refreshToken.get))
+        }
+        ati.accessToken.get
       }
-      ati.accessToken.get
     }
   }
 
