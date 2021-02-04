@@ -33,7 +33,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   private val ctxLogger = Logger.takingImplicit[NameAndFilename]("ctx-logger")
 
   private implicit val ec: ExecutionContext = system.dispatcher
-  private val invoker = new GuardedApiInvoker(ApiInvoker())
+  private val invoker = new GuardedApiInvoker(ApiInvoker(), 100)
 
   private val user = "serweryn"
   private val endoDirname = getConfigString("endo-workouts-dir")
