@@ -33,7 +33,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
   private val ctxLogger = Logger.takingImplicit[NameAndFilename]("ctx-logger")
 
   private implicit val ec: ExecutionContext = system.dispatcher
-  private val invoker = new GuardedApiInvoker(ApiInvoker(), 100)
+  private val bareInvoker: ApiInvoker = ApiInvoker()
+  private val invoker = new GuardedApiInvoker(bareInvoker, 100)
 
   private val user = "serweryn"
   private val endoDirname = getConfigString("endo-workouts-dir")
@@ -92,7 +93,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       logger.info("refreshing access_token...")
 
       val request = OAuthApi.refreshToken(clientId, clientSecret, refreshToken)
-      val response = invoker.execute(request)
+      val response = bareInvoker.execute(request)
 
       response.map { apiResponse =>
         val ati = apiResponse.content
