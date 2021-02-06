@@ -14,7 +14,7 @@ import play.api.libs.json.Json
 
 import java.io.{File, FileInputStream, FilenameFilter}
 import scala.concurrent.{blocking, ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
@@ -80,10 +80,10 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
     val clientSecret = getConfigString("client-secret")
     val tokenInfo = db.selectTokenInfo(user).headOption
 
-    def notExpiresSoon(ti: TokenInfo): Boolean =
-      ti.expiresAt > (System.currentTimeMillis()/1000 + 15*60)
+    def expiresIn(ti: TokenInfo, d: FiniteDuration): Boolean =
+      ti.expiresAt < (System.currentTimeMillis()/1000 + d.toSeconds)
 
-    if (tokenInfo.nonEmpty && notExpiresSoon(tokenInfo.get)) {
+    if (tokenInfo.nonEmpty && !expiresIn(tokenInfo.get, 15.minutes)) {
       logger.info("reusing access_token")
       Future.successful(tokenInfo.get.accessToken)
     } else {
