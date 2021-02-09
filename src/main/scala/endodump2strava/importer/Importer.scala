@@ -221,9 +221,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
       } else {
         ctxLogger.info("updating activity...")
         db.deleteActivityStep(metadata.name, ImportedActivityStep.updateActivity)
-        val workoutJsonFilename = s"$endoDirname/${metadata.name}.${WorkoutFileType.Json.extension}"
-        val workoutJson = Json.parse(new FileInputStream(workoutJsonFilename))
-        val workout = Workout(workoutJson)
+        val workout: Workout = loadWorkout()
         val req = stravaApi.updateActivity(activityId, workout)
         val res = invoker.execute(req)
         res andThen {
@@ -234,6 +232,13 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
             else Future.failed(new IllegalStateException("got error response code for updateActivity"))
         }
       }
+    }
+
+    private def loadWorkout() = {
+      val workoutJsonFilename = s"$endoDirname/${metadata.name}.${WorkoutFileType.Json.extension}"
+      val workoutJson = Json.parse(new FileInputStream(workoutJsonFilename))
+      val workout = Workout(workoutJson)
+      workout
     }
 
     private def successfulResponseCode(code: Int) = {
