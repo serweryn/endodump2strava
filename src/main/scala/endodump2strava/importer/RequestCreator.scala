@@ -28,7 +28,7 @@ class RequestCreator(accessToken: String) {
     def toInt(b: Boolean) = if (b) 1 else 0
 
     ActivitiesApi.createActivity(
-      name = workout.name.get,
+      name = workout.name.getOrElse(activity.activityType.entryName),
       `type` = activity.activityType.entryName,
       startDateLocal = workout.start_time.get,
       elapsedTime = workout.duration_s.get,
