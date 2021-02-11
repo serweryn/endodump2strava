@@ -15,6 +15,7 @@ object ImportedActivityStep {
   val createUpload = "createUpload"
   val getUpload = "getUpload"
   val updateActivity = "updateActivity"
+  val createActivity = "createActivity"
 
   def apply(
     workoutBasename: String,

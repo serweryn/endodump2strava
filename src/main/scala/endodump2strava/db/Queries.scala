@@ -44,7 +44,8 @@ class Queries(val sqlCtx: H2JdbcContext[SnakeCase]) {
       quote {
         query[ImportedActivity].filter { a => a.activityId.nonEmpty &&
           query[ImportedActivityStep].filter(s => s.workoutBasename == a.workoutBasename &&
-            s.stepName == lift(ImportedActivityStep.updateActivity) && s.responseCode < 300).nonEmpty
+            (s.stepName == lift(ImportedActivityStep.updateActivity) || s.stepName == lift(ImportedActivityStep.createActivity)) &&
+              s.responseCode < 300).nonEmpty
         }
       }
     }

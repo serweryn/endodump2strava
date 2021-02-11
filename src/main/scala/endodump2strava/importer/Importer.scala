@@ -203,6 +203,8 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
             }
         } andThen {
           case t => saveActivityStep(Future.fromTry(t), ImportedActivityStep.getUpload)
+        } andThen {
+          case Failure(ApiError(ErrorCodes.EmptyFile, _, _, _, _)) => createActivity()
         } map {
           case ApiResponse(_, body, _) =>
             val activityId = body.activityId.get
@@ -210,6 +212,22 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
             db.updateActivity(activity.copy(activityId = Option(activityId)))
             activityId
         }
+      }
+    }
+
+    private def createActivity(): Unit = {
+      ctxLogger.info("creating activity...")
+      db.deleteActivityStep(metadata.name, ImportedActivityStep.createActivity)
+      val workout: Workout = loadWorkout()
+      val req = stravaApi.createActivity(workout)
+      val res = invoker.execute(req)
+      res andThen {
+        case _ => saveActivityStep(res, ImportedActivityStep.createActivity)
+      } onSuccess {
+        case ApiResponse(_, body, _) =>
+          ctxLogger.info(s"created activity activityId=${body.id}")
+          val activity = db.selectActivity(metadata.name).head
+          db.updateActivity(activity.copy(activityId = body.id))
       }
     }
 

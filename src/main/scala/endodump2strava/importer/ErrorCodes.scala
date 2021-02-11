@@ -4,10 +4,10 @@ object ErrorCodes {
 
   val InvalidApiConnection = 499
   val OtherApiError = 498
+  val EmptyFile = 497
 
   // these are "successful" codes, used to mark activities which shouldn't be processed further
   val DuplicateActivity = 297
-  val EmptyFile = 298
-  val SuccessfulCodes = Seq(DuplicateActivity, EmptyFile)
+  val SuccessfulCodes = Seq(DuplicateActivity)
 
 }
