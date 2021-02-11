@@ -167,7 +167,9 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         val (code, body, headers) = a match {
           case Success(v) => (v.code, "", "")
           case Failure(ApiError(code, msg, content, _, headers)) => (code, s"$msg: $content", headers.toString)
-          case Failure(e) => (ErrorCodes.OtherApiError, s"${e.getMessage}", "")
+          case Failure(e) =>
+            ctxLogger.error("other error", e)
+            (ErrorCodes.OtherApiError, s"${e.getMessage}", "")
         }
         db.insertActivityStep(ImportedActivityStep(metadata.name, stepName, code, body, headers))
       }
@@ -204,7 +206,7 @@ class Importer(implicit system: ActorSystem) extends LazyLogging {
         } andThen {
           case t => saveActivityStep(Future.fromTry(t), ImportedActivityStep.getUpload)
         } andThen {
-          case Failure(ApiError(ErrorCodes.EmptyFile, _, _, _, _)) => createActivity()
+          case Failure(ApiError(code, _, _, _, _)) if Seq(ErrorCodes.EmptyFile).contains(code) => createActivity()
         } map {
           case ApiResponse(_, body, _) =>
             val activityId = body.activityId.get
