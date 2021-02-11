@@ -147,8 +147,13 @@ class ApiInvoker(formats: Formats)(implicit system: ActorSystem) extends Untrust
     }
   }
 
+  private def jodaToString(a: Any): Any = a match {
+    case d: DateTime => d.toString
+    case o => o
+  }
+
   private def formDataContent(request: ApiRequest[_]) = {
-    val params = request.formParams.asFormattedParams
+    val params = request.formParams.mapValues(jodaToString).asFormattedParams
     if (params.isEmpty)
       None
     else
